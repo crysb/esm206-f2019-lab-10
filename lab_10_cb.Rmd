@@ -27,6 +27,8 @@ library(stargazer) # For nice regression tables!
 library(sf)
 library(gganimate)
 library(transformr)
+library(here)
+library(av)
 ```
 
 ### Objectives
@@ -122,4 +124,107 @@ Now let's check out diagnostic plots to see if our assumptions (normality of res
 plot(home_lm2)
 ```
 
+Make some home price predictions with new data. We're going to use that simplified model (home_lm2).
+
+- First, create new data that contains city, sq_ft, status
+- Give that new data to home_lm2 to make new predictions
+- Plot it
+
+```{r}
+new_df <- data.frame(city = rep(c("San Luis Obispo", "Arroyo Grande", "Atascadero"), each = 10),
+                     sq_ft = rep(seq(0, 5000, length = 10)),
+                     status = "Regular")
+```
+
+Use `predict` function to make new predictions using home_lm2:
+
+```{r}
+predict_df <- predict(home_lm2, newdata = new_df)
+```
+
+# Bind that together with the new_df:
+
+```{r}
+full_df <- data.frame(new_df, predict_df)
+```
+
+Make a graph with the actual data, and what our model actually predicts:
+
+```{r}
+# if pulling from two sources, start with empty ggplot() call and add the data
+ggplot() +
+  geom_point(data = homes,
+             aes(x = sq_ft, 
+                 y = price, 
+                 color = city, 
+                 pch = city)) +
+  geom_line(data = full_df,
+            aes(x = sq_ft,
+                y = predict_df,
+                color = city)) +
+  theme_light()
+
+ggplot(data = homes, aes(x = sq_ft, y = price)) +
+  geom_point() +
+  geom_smooth(method = lm) +
+  facet_wrap(~city)
+```
+
+### Intro to the `sf` package
+
+`sf` = simple features
+
+Has sticky geometry! Maintains the spatial information in the dataframe. This means we can just work with attributes like a normal data frame for wrangling, viz, etc.
+
+Get the California dams data:
+
+```{r}
+dams <-  read_csv("ca_dams.csv") %>% 
+  clean_names() %>% 
+  drop_na(latitude) %>% # does complete row deletion for whatever variable you indicate with an 'na'
+  drop_na(longitude) %>% 
+  drop_na(year_completed)
+```
+
+Convert lat/long numbers to simple features data (sf)
+
+```{r}
+dams_sf <- st_as_sf(dams, coords = c("longitude", "latitude")) # indicate where your long/lat values are
+st_crs(dams_sf) <- 4326 # set coordinate reference system
+
+plot(dams_sf) # basic plot works OK for initial review
+```
+
+Now let's read in the shapefile data for the state of CA (outer boundary TIGER shapefile data).
+
+```{r}
+ca_border <- read_sf(here::here("ca_state_border"), layer = "CA_State_TIGER2016")
+plot(ca_border) # if you look at the table for ca_border, it holds the entire geometry of the polygon in 'geometry'
+```
+
+Now, plot dams in California over the CA outline, in `ggplot`:
+
+```{r}
+ggplot() +
+  geom_sf(data = ca_border, fill = "slate grey") +
+  geom_sf(data = dams_sf,
+          aes(size = dam_height),
+          alpha = 0.5,
+          color = "dark red",
+          show.legend = FALSE)
+```
+
+Let's make an animated plot:
+
+```{r}
+ggplot() +
+  geom_sf(data = ca_border) +
+  geom_sf(data = dams_sf, size = 1, color = "gray50") +
+  theme_void() +
+  labs(title = "Year: {round(frame_time, 0)}") +
+  transition_time(year_completed) + # animation time; give it the variable that contains that info
+  shadow_mark(alpha = 1) # by default shows up & disappears, this makes sure they stay
+
+beep(12)
+```
 
