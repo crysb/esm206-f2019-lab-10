@@ -1,0 +1,77 @@
+---
+title: "Lab 10 - Final - Multiple Linear Regression"
+author: "Crystal Bae"
+date: "12/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Packages needed
+library(tidyverse)
+library(janitor)
+library(corrplot)
+
+library(beepr) # just for fun!
+# if you have long-running code, you don't have to look at it (plays sound)
+# beep(#) Choose a number between 1-12
+# Number 8 is super mario!
+
+library(praise) # just for fun too! 
+# says nice things. Try it: Enter praise() in any code chunk or in the console
+
+library(stargazer) # For nice regression tables! 
+# Hlavac, Marek (2018). stargazer: Well-Formatted Regression and Summary Statistics Tables.
+#  R package version 5.2.2. https://CRAN.R-project.org/package=stargazer 
+library(sf)
+library(gganimate)
+library(transformr)
+```
+
+### Objectives
+
+- Multiple linear regression
+- Check assumptions w/ diagnostic plots
+- Make predictions for MLR with new data
+- Intro to maps / spatial analysis in R & gganimate
+
+### Multiple Linear Regression
+
+```{r}
+homes <- read_csv("slo_homes.csv") %>% 
+  janitor::clean_names() %>% 
+  filter(city %in% c("San Luis Obispo", "Atascadero", "Arroyo Grande"))
+```
+
+Look at correlations between numeric variables (checking to see if we think collinearity might be a concern). Ignore price_per_sq_ft since it's a calculated metric.
+
+```{r}
+# Creates correlation matrix:
+homes_cor <- cor(homes[2:6])
+homes_cor
+```
+
+Make a correlogram (plot of correlations):
+
+```{r}
+corrplot(homes_cor)
+beep(2)
+```
+
+Start with a complete model including all variables for now:
+
+```{r}
+# linear model with outcome as price (assumes no interaction)
+home_lm <- lm(price ~ city + bedrooms + bathrooms + sq_ft + status, 
+              data = homes) 
+home_lm
+```
+
+Let's interpret the model results.
+
+- Since Atascadero and SLO show up in the model, the reference level is Arroyo Grande.
+- With all else held equal, we would expect a home in Atascadero to sell $167,396 dollars LESS than a home in Arroyo Grande, on average.
+- With all else held equal, a house in SLO would sell for $31,018 MORE than a home in Arroyo Grande.
+- This model also suggests that for each additional bedroom, on average home price decreases by $161,645 for each additional bedroom. This is non-sensical, so think about collinearity! Might be explaining the same thing (home price) with highly-correlated variables.
+
